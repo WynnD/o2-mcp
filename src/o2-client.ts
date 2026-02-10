@@ -103,7 +103,7 @@ export class O2Client {
     const { stream_name, start_time, end_time, from = 0, size = 20 } = params;
     return this.request(
       "POST",
-      `/api/${this.org}/${stream_name}/_search?type=traces`,
+      `/api/${this.org}/_search?type=traces`,
       {
         query: {
           sql: `SELECT * FROM "${stream_name}" ORDER BY start_time DESC`,
