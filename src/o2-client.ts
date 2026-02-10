@@ -85,6 +85,14 @@ export class O2Client {
     return this.request("GET", `/api/${this.org}/alerts/destinations`);
   }
 
+  async createDestination(destination: unknown): Promise<unknown> {
+    return this.request(
+      "POST",
+      `/api/${this.org}/alerts/destinations`,
+      destination,
+    );
+  }
+
   async getLatestTraces(params: {
     stream_name: string;
     start_time: number;
