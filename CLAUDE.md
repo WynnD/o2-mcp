@@ -1,106 +1,61 @@
+# CLAUDE.md
 
-Default to using Bun instead of Node.js.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-- Use `bun <file>` instead of `node <file>` or `ts-node <file>`
-- Use `bun test` instead of `jest` or `vitest`
-- Use `bun build <file.html|file.ts|file.css>` instead of `webpack` or `esbuild`
-- Use `bun install` instead of `npm install` or `yarn install` or `pnpm install`
-- Use `bun run <script>` instead of `npm run <script>` or `yarn run <script>` or `pnpm run <script>`
-- Bun automatically loads .env, so don't use dotenv.
+## What This Is
 
-## APIs
+An MCP (Model Context Protocol) server that exposes OpenObserve observability tools — SQL queries, stream management, alerts, destinations, and traces. Claude Code (or any MCP client) connects via stdio.
 
-- `Bun.serve()` supports WebSockets, HTTPS, and routes. Don't use `express`.
-- `bun:sqlite` for SQLite. Don't use `better-sqlite3`.
-- `Bun.redis` for Redis. Don't use `ioredis`.
-- `Bun.sql` for Postgres. Don't use `pg` or `postgres.js`.
-- `WebSocket` is built-in. Don't use `ws`.
-- Prefer `Bun.file` over `node:fs`'s readFile/writeFile
-- Bun.$`ls` instead of execa.
+## Commands
 
-## Testing
-
-Use `bun test` to run tests.
-
-```ts#index.test.ts
-import { test, expect } from "bun:test";
-
-test("hello world", () => {
-  expect(1).toBe(1);
-});
+```bash
+bun install              # Install dependencies
+bun run src/index.ts     # Run the MCP server (stdio transport)
+bun test                 # Run tests
 ```
 
-## Frontend
+Use `bun` exclusively — never npm/node/npx. Bun auto-loads `.env`.
 
-Use HTML imports with `Bun.serve()`. Don't use `vite`. HTML imports fully support React, CSS, Tailwind.
+## Environment Variables
 
-Server:
+Defined in `.env` (see `.env.example`):
+- `O2_BASE_URL` — OpenObserve URL, no trailing slash
+- `O2_TOKEN` — Base64-encoded `user:password`
+- `O2_ORG` — Organization name (e.g. `default`)
 
-```ts#index.ts
-import index from "./index.html"
+## Architecture
 
-Bun.serve({
-  routes: {
-    "/": index,
-    "/api/users/:id": {
-      GET: (req) => {
-        return new Response(JSON.stringify({ id: req.params.id }));
-      },
-    },
-  },
-  // optional websocket support
-  websocket: {
-    open: (ws) => {
-      ws.send("Hello, world!");
-    },
-    message: (ws, message) => {
-      ws.send(message);
-    },
-    close: (ws) => {
-      // handle close
-    }
-  },
-  development: {
-    hmr: true,
-    console: true,
-  }
-})
+```
+src/
+├── index.ts          # Server setup: creates O2Client + McpServer, registers tools, connects stdio
+├── o2-client.ts      # Pure HTTP client for OpenObserve REST API (no MCP knowledge)
+└── tools/
+    ├── search.ts       # query_data — SQL queries against O2
+    ├── streams.ts      # list_streams, get_stream_stats
+    ├── alerts.ts       # list/create/update/delete alerts
+    ├── destinations.ts # list/create destinations, list alert templates
+    ├── traces.ts       # get_latest_traces
+    ├── functions.ts    # list_functions (VRL functions)
+    ├── dashboards.ts   # list_dashboards
+    ├── pipelines.ts    # list_pipelines
+    └── org.ts          # get_org_summary, get_config, healthz
 ```
 
-HTML files can import .tsx, .jsx or .js files directly and Bun's bundler will transpile & bundle automatically. `<link>` tags can point to stylesheets and Bun's CSS bundler will bundle.
+**Separation of concerns:** `o2-client.ts` handles all HTTP/auth. Tool files in `tools/` only handle MCP registration and Zod schemas. `index.ts` wires them together.
 
-```html#index.html
-<html>
-  <body>
-    <h1>Hello, world!</h1>
-    <script type="module" src="./frontend.tsx"></script>
-  </body>
-</html>
-```
+## Tool Registration Pattern
 
-With the following `frontend.tsx`:
+Every tool file exports a `registerXxxTools(server: McpServer, client: O2Client)` function. Tools follow this shape:
 
-```tsx#frontend.tsx
-import React from "react";
+1. Define Zod schema for parameters
+2. Call `server.tool(name, description, schema, handler)`
+3. Handler calls `client.methodName()`, returns JSON as `{ content: [{ type: "text", text }] }`
+4. Errors caught and returned with `isError: true`
 
-// import .css files directly and it works
-import './index.css';
+## Key Conventions
 
-import { createRoot } from "react-dom/client";
-
-const root = createRoot(document.body);
-
-export default function Frontend() {
-  return <h1>Hello, world!</h1>;
-}
-
-root.render(<Frontend />);
-```
-
-Then, run index.ts
-
-```sh
-bun --hot ./index.ts
-```
-
-For more information, read the Bun API docs in `node_modules/bun-types/docs/**.md`.
+- All timestamps are **epoch microseconds** (not milliseconds)
+- Alert/destination tools accept raw JSON strings (`alert_json`, `destination_json`) rather than structured params
+- O2Client auth uses `Basic` header with the Base64 token from env
+- API base path pattern: `/api/{org}/...`
+- Server logs to stderr (stdout is the MCP stdio transport)

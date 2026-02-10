@@ -43,21 +43,9 @@ export function registerStreamTools(server: McpServer, client: O2Client) {
     },
     async (args) => {
       try {
-        const result = (await client.listStreams({
-          type: args.type,
-          fetchSchema: true,
-        })) as { list?: Array<{ name: string }> };
-        const stream = result.list?.find(
-          (s: { name: string }) => s.name === args.stream_name,
-        );
-        if (!stream) {
-          return {
-            content: [{ type: "text" as const, text: `Stream "${args.stream_name}" not found` }],
-            isError: true,
-          };
-        }
+        const result = await client.getStreamSchema(args);
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(stream, null, 2) }],
+          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
         };
       } catch (error) {
         return {

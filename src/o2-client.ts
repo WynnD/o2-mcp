@@ -65,6 +65,17 @@ export class O2Client {
     );
   }
 
+  async getStreamSchema(params: {
+    stream_name: string;
+    type?: string;
+  }): Promise<unknown> {
+    const typeParam = params.type ? `?type=${params.type}` : "";
+    return this.request(
+      "GET",
+      `/api/${this.org}/streams/${params.stream_name}/schema${typeParam}`,
+    );
+  }
+
   async listAlerts(): Promise<unknown> {
     return this.request("GET", `/api/${this.org}/alerts`);
   }
@@ -91,6 +102,34 @@ export class O2Client {
       `/api/${this.org}/alerts/destinations`,
       destination,
     );
+  }
+
+  async listAlertTemplates(): Promise<unknown> {
+    return this.request("GET", `/api/${this.org}/alerts/templates`);
+  }
+
+  async listFunctions(): Promise<unknown> {
+    return this.request("GET", `/api/${this.org}/functions`);
+  }
+
+  async listDashboards(): Promise<unknown> {
+    return this.request("GET", `/api/${this.org}/dashboards`);
+  }
+
+  async listPipelines(): Promise<unknown> {
+    return this.request("GET", `/api/${this.org}/pipelines`);
+  }
+
+  async getOrgSummary(): Promise<unknown> {
+    return this.request("GET", `/api/${this.org}/summary`);
+  }
+
+  async getConfig(): Promise<unknown> {
+    return this.request("GET", `/config`);
+  }
+
+  async healthz(): Promise<unknown> {
+    return this.request("GET", `/healthz`);
   }
 
   async getLatestTraces(params: {
